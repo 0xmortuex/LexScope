@@ -47,6 +47,7 @@ const App = (() => {
 
     // Compare view
     $('#btn-run-compare').addEventListener('click', handleCompare);
+    $('#btn-load-compare-samples').addEventListener('click', handleLoadCompareSamples);
     $('#btn-back-compare').addEventListener('click', () => showView('input'));
 
     // FABs
@@ -164,17 +165,18 @@ const App = (() => {
   /**
    * Handle Load Sample button
    */
-  async function handleLoadSample() {
-    try {
-      const response = await fetch('samples/sample-bill.txt');
-      if (!response.ok) throw new Error('Failed to load sample');
-      const text = await response.text();
-      $('#legislation-input').value = text;
-      showToast('Sample bill loaded!', 'info');
-    } catch (err) {
-      showToast('Failed to load sample bill.', 'error');
-      log('Load sample error:', err);
-    }
+  function handleLoadSample() {
+    $('#legislation-input').value = Samples.SAMPLE_BILL_V1;
+    showToast('Sample bill loaded!', 'info');
+  }
+
+  /**
+   * Handle Load Compare Samples button
+   */
+  function handleLoadCompareSamples() {
+    $('#compare-old').value = Samples.SAMPLE_BILL_V1;
+    $('#compare-new').value = Samples.SAMPLE_BILL_V2;
+    showToast('Sample bills loaded!', 'info');
   }
 
   /**
