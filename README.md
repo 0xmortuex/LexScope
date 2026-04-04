@@ -17,7 +17,7 @@ Interactive legislation explorer that turns dense legal text into an understanda
 
 ## How to Use
 
-1. Visit the [live demo](https://unknownhacker9991.github.io/LexScope/) or clone the repo and open `index.html`
+1. Visit the [live demo](https://0xmortuex.github.io/LexScope/) or clone the repo and open `index.html`
 2. Paste any legislation or legal text into the input area
 3. Click **Analyze** (or press `Ctrl+Enter`)
 4. Explore the interactive breakdown: navigate sections, hover terms, toggle summaries
@@ -32,7 +32,7 @@ Interactive legislation explorer that turns dense legal text into an understanda
 
 ## Live Demo
 
-[https://unknownhacker9991.github.io/LexScope/](https://unknownhacker9991.github.io/LexScope/)
+[https://0xmortuex.github.io/LexScope/](https://0xmortuex.github.io/LexScope/)
 
 ## License
 
