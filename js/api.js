@@ -4,20 +4,28 @@
 
 const API = (() => {
   const PROXY_URL = 'https://lexscope-proxy.mortuexhavoc.workers.dev';
-  const DEBUG = false;
-
-  function log(...args) {
-    if (DEBUG) console.log('[API]', ...args);
-  }
+  const REQUEST_TIMEOUT_MS = 30000;
 
   async function request(body) {
-    log('Request:', body.action);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-    const response = await fetch(PROXY_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    let response;
+    try {
+      response = await fetch(PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        throw new Error('Request timed out. The server may be busy — please try again.');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       if (response.status === 429) {

@@ -35,6 +35,8 @@
   --transition-fast: 150ms ease;
   --transition-med: 250ms ease;
   --transition-slow: 400ms ease;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
   --sidebar-width: 250px;
   --font-display: 'DM Serif Display', Georgia, serif;
   --font-body: 'Outfit', -apple-system, sans-serif;
@@ -114,7 +116,7 @@ a:hover {
 
 .view.active {
   display: flex;
-  animation: fadeSlideUp var(--transition-slow) forwards;
+  animation: fadeSlideUp var(--transition-slow) var(--ease-out) forwards;
 }
 
 @keyframes fadeSlideUp {
@@ -165,6 +167,12 @@ a:hover {
   color: var(--text-secondary);
   margin-top: 0.25rem;
   font-weight: 300;
+  animation: taglineBreathe 3.2s ease-in-out infinite;
+}
+
+@keyframes taglineBreathe {
+  0%, 100% { opacity: 0.7; }
+  50%      { opacity: 1; }
 }
 
 .input-area {
@@ -231,6 +239,7 @@ a:hover {
 .btn-primary:hover:not(:disabled) {
   background: #6366f1;
   box-shadow: 0 0 16px var(--accent-indigo-dim);
+  transform: translateY(-1px);
 }
 
 .btn-secondary {
@@ -242,6 +251,19 @@ a:hover {
 .btn-secondary:hover:not(:disabled) {
   background: var(--bg-card-hover);
   border-color: var(--border-light);
+  transform: translateY(-1px);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
+
+.btn:focus-visible,
+.toc-item:focus-visible,
+.def-item:focus-visible,
+.suggestion-card:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-indigo-mid);
 }
 
 .btn-small {
@@ -300,6 +322,42 @@ a:hover {
   color: var(--text-secondary);
 }
 
+/* Skeleton preview shown while the real request is in flight.
+   Visibility is entirely driven by .loading-overlay.active, so it is
+   automatically tied to the real fetch lifecycle in app.js. */
+.skeleton-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: 100%;
+  max-width: 320px;
+}
+
+.skeleton-bar {
+  height: 12px;
+  border-radius: 6px;
+  background: var(--bg-surface);
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, var(--bg-card-hover), transparent);
+  transform: translateX(-100%);
+  animation: skeletonShimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes skeletonShimmer {
+  to { transform: translateX(100%); }
+}
+
+.skeleton-bar.w-70  { width: 70%; }
+.skeleton-bar.w-100 { width: 100%; }
+.skeleton-bar.w-85  { width: 85%; }
+
 /* ===== Toast Notifications ===== */
 .toast-container {
   position: fixed;
@@ -321,7 +379,7 @@ a:hover {
   font-size: 0.85rem;
   color: #fff;
   pointer-events: auto;
-  animation: toastIn var(--transition-med) forwards;
+  animation: toastIn var(--transition-med) var(--ease-out) forwards;
   box-shadow: var(--shadow-md);
   max-width: 360px;
 }
@@ -490,5 +548,18 @@ a:hover {
 
   .logo h1 {
     font-size: 1.7rem;
+  }
+}
+
+/* ===== Reduced Motion ===== */
+/* Global gate: collapses every animation/transition to effectively instant
+   so state still updates correctly, but nothing moves for users who've
+   asked for reduced motion. Keep this last so it wins the cascade. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }

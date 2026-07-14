@@ -15,9 +15,19 @@ const Compare = (() => {
   function renderResults(data, container) {
     container.innerHTML = '';
 
+    // Crossfade the whole results block in as it's rebuilt
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reduced) {
+      container.style.transition = 'none';
+      container.style.opacity = '0';
+    }
+
     // Summary bar
     const summary = document.createElement('div');
     summary.className = 'compare-summary';
+    summary.style.opacity = '0';
+    summary.style.transform = 'translateY(16px)';
+    summary.style.animation = 'cardEnter var(--transition-slow) forwards';
     summary.innerHTML = `
       <span class="significance-badge sig-${data.significance}">${data.significance}</span>
       <span class="compare-summary-text">${escapeHTML(data.summary)}</span>
@@ -57,6 +67,15 @@ const Compare = (() => {
 
       container.appendChild(card);
     });
+
+    if (!reduced) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          container.style.transition = 'opacity 320ms cubic-bezier(0.16, 1, 0.3, 1)';
+          container.style.opacity = '1';
+        });
+      });
+    }
 
     log('Rendered', data.changes.length, 'changes');
   }

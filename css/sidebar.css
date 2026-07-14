@@ -53,16 +53,28 @@
   font-size: 0.8rem;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast),
+    border-color var(--transition-fast), transform var(--transition-fast);
   border-left: 2px solid transparent;
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  opacity: 0;
+  transform: translateY(6px);
+  animation: tocItemIn 320ms var(--ease-out) forwards;
+}
+
+@keyframes tocItemIn {
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .toc-item:hover {
   background: var(--bg-surface);
   color: var(--text-primary);
+}
+
+.toc-item:active {
+  transform: scale(0.98);
 }
 
 .toc-item.active {
@@ -120,6 +132,13 @@
   font-weight: 700;
   color: #fff;
   flex-shrink: 0;
+  opacity: 0;
+  transform: scale(0.4) rotate(-8deg);
+  animation: gradeReveal 550ms var(--ease-out) 100ms forwards;
+}
+
+@keyframes gradeReveal {
+  to { opacity: 1; transform: scale(1) rotate(0deg); }
 }
 
 .grade-A { background: var(--accent-emerald); }
@@ -161,8 +180,11 @@
 
 .bar-fill {
   height: 100%;
+  width: 100%;
   border-radius: 3px;
-  transition: width var(--transition-slow);
+  transform-origin: left center;
+  /* transform set inline; animateComplexityReveal() in renderer.js
+     transitions it from scaleX(0) to the target value */
 }
 
 .bar-fill.low    { background: var(--accent-emerald); }
@@ -419,16 +441,30 @@
   word-wrap: break-word;
 }
 
+.diff-old, .diff-new {
+  opacity: 0;
+  animation: diffLineIn 380ms var(--ease-out) forwards;
+}
+
+@keyframes diffLineIn {
+  from { opacity: 0; transform: translateX(var(--diff-dx, 0)); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
 .diff-old {
   background: rgba(248, 113, 113, 0.08);
   border-left: 3px solid var(--accent-red);
   color: var(--accent-red);
+  --diff-dx: -6px;
+  animation-delay: 150ms;
 }
 
 .diff-new {
   background: rgba(52, 211, 153, 0.08);
   border-left: 3px solid var(--accent-emerald);
   color: var(--accent-emerald);
+  --diff-dx: 6px;
+  animation-delay: 220ms;
 }
 
 /* ===== Responsive ===== */

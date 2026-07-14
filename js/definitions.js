@@ -16,7 +16,7 @@ const Definitions = (() => {
    */
   function init(definitions, sections) {
     definitionsMap = {};
-    definitions.forEach(d => {
+    (definitions || []).forEach(d => {
       if (d.term) {
         definitionsMap[d.term.toLowerCase()] = d;
       }
@@ -24,33 +24,59 @@ const Definitions = (() => {
 
     log('Initialized with', Object.keys(definitionsMap).length, 'terms');
     annotateTerms();
+    annotateCrossReferences(sections || []);
     bindEvents();
   }
 
   /**
-   * Scan all legislation text blocks and wrap defined terms
+   * Walk text nodes under a root, skipping any node that already lives
+   * inside a term/reference span. Both annotation passes share this guard
+   * so a match can never be nested inside already-wrapped markup (which
+   * would otherwise corrupt the DOM on re-scans or overlapping matches).
+   */
+  function eligibleTextNodes(root) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+        const parentEl = node.parentElement;
+        if (parentEl && parentEl.closest('.defined-term, .cross-ref')) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    });
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    return nodes;
+  }
+
+  /**
+   * Scan all legislation text blocks and wrap defined terms.
+   *
+   * Terms are matched longest-first (both in the alternation order and via
+   * the shared eligible-node guard above) so that overlapping/nested terms
+   * — e.g. "vehicle" contained within "motor vehicle" — resolve to the most
+   * specific match at each position instead of leaving stray fragments or
+   * double-wrapped spans.
    */
   function annotateTerms() {
     const textBlocks = document.querySelectorAll('.legislation-text');
-    const terms = Object.keys(definitionsMap).sort((a, b) => b.length - a.length);
+    const terms = Object.keys(definitionsMap)
+      .filter(Boolean)
+      .sort((a, b) => b.length - a.length);
 
     if (terms.length === 0) return;
 
-    // Build regex that matches whole terms (case insensitive)
+    // Build regex that matches whole terms (case insensitive), longest first
     const pattern = new RegExp(
       '\\b(' + terms.map(t => escapeRegex(t)).join('|') + ')\\b',
       'gi'
     );
 
     textBlocks.forEach(block => {
-      const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
-      const textNodes = [];
-      while (walker.nextNode()) {
-        textNodes.push(walker.currentNode);
-      }
-
-      textNodes.forEach(node => {
+      eligibleTextNodes(block).forEach(node => {
         const text = node.textContent;
+        pattern.lastIndex = 0;
         if (!pattern.test(text)) return;
         pattern.lastIndex = 0;
 
@@ -72,6 +98,9 @@ const Definitions = (() => {
           frag.appendChild(span);
 
           lastIdx = match.index + match[0].length;
+
+          // Guard against a pathological zero-width match looping forever
+          if (match[0].length === 0) pattern.lastIndex++;
         }
 
         // Remaining text
@@ -82,6 +111,81 @@ const Definitions = (() => {
         node.parentNode.replaceChild(frag, node);
       });
     });
+  }
+
+  /**
+   * Scan legislation text for references to other sections — "Section 4",
+   * "Sec. 4(a)", "§ 4" — and wrap them as clickable .cross-ref links that
+   * jump to the referenced section (handled by the delegated click listener
+   * in app.js). Reuses the same eligible-node guard as annotateTerms so it
+   * never nests a reference inside an already-wrapped defined-term span.
+   */
+  function annotateCrossReferences(sections) {
+    const sectionByNumber = {};
+    sections.forEach(s => {
+      const key = normalizeSectionNumber(s.number);
+      if (key && !(key in sectionByNumber)) sectionByNumber[key] = s.id;
+    });
+
+    if (Object.keys(sectionByNumber).length === 0) return;
+
+    const pattern = /\b(?:Section|Sec\.?)\s+(\d+[A-Za-z]?(?:\(\w+\))?)\b|§\s*(\d+[A-Za-z]?(?:\(\w+\))?)\b/gi;
+
+    document.querySelectorAll('.section-card').forEach(card => {
+      const ownId = card.dataset.sectionId;
+      const textBlock = card.querySelector('.legislation-text');
+      if (!textBlock) return;
+
+      eligibleTextNodes(textBlock).forEach(node => {
+        const text = node.textContent;
+        pattern.lastIndex = 0;
+        if (!pattern.test(text)) return;
+        pattern.lastIndex = 0;
+
+        const frag = document.createDocumentFragment();
+        let lastIdx = 0;
+        let match;
+        let changed = false;
+
+        while ((match = pattern.exec(text)) !== null) {
+          const key = normalizeSectionNumber(match[1] || match[2]);
+          const targetId = sectionByNumber[key];
+
+          // No known section matches, or it's a self-reference — leave as plain text
+          if (!targetId || targetId === ownId) continue;
+
+          if (match.index > lastIdx) {
+            frag.appendChild(document.createTextNode(text.slice(lastIdx, match.index)));
+          }
+
+          const span = document.createElement('span');
+          span.className = 'cross-ref';
+          span.dataset.sectionId = targetId;
+          span.textContent = match[0];
+          frag.appendChild(span);
+
+          lastIdx = match.index + match[0].length;
+          changed = true;
+        }
+
+        if (!changed) return;
+
+        if (lastIdx < text.length) {
+          frag.appendChild(document.createTextNode(text.slice(lastIdx)));
+        }
+
+        node.parentNode.replaceChild(frag, node);
+      });
+    });
+  }
+
+  /**
+   * Extract a comparable section number key, e.g. "Section 4(a)" -> "4a"
+   */
+  function normalizeSectionNumber(str) {
+    if (!str) return '';
+    const match = String(str).match(/\d+[A-Za-z]?/);
+    return match ? match[0].toLowerCase() : '';
   }
 
   /**

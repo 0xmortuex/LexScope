@@ -51,13 +51,23 @@ const Renderer = (() => {
     data.sections.forEach((section, i) => {
       const item = el('li', 'toc-item');
       item.dataset.sectionId = section.id;
+      item.tabIndex = 0;
+      item.setAttribute('role', 'button');
+      item.style.animationDelay = `${i * 35}ms`;
       item.innerHTML = `
         <span class="toc-item-number">${escapeHTML(section.number)}</span>
         <span class="toc-item-title">${escapeHTML(section.title)}</span>
       `;
-      item.addEventListener('click', () => {
+      const activate = () => {
         scrollToSection(section.id);
         setActiveTocItem(item);
+      };
+      item.addEventListener('click', activate);
+      item.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          activate();
+        }
       });
       tocList.appendChild(item);
     });
@@ -92,6 +102,7 @@ const Renderer = (() => {
         </div>
       `;
       sidebar.appendChild(complexitySection);
+      animateComplexityReveal(complexitySection);
     }
 
     // Definitions
@@ -113,6 +124,14 @@ const Renderer = (() => {
         const item = el('li', 'def-item');
         item.textContent = d.term;
         item.dataset.term = d.term.toLowerCase();
+        item.tabIndex = 0;
+        item.setAttribute('role', 'button');
+        item.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            item.click();
+          }
+        });
         defList.appendChild(item);
       });
 
@@ -219,7 +238,7 @@ const Renderer = (() => {
   }
 
   /**
-   * Render a complexity bar
+   * Render a complexity bar (starts empty; animateComplexityReveal fills it)
    */
   function renderBar(label, value) {
     const level = value <= 33 ? 'low' : value <= 66 ? 'medium' : 'high';
@@ -227,13 +246,56 @@ const Renderer = (() => {
       <div class="bar-item">
         <div class="bar-label">
           <span>${label}</span>
-          <span>${value}</span>
+          <span class="bar-value" data-count-target="${value}">0</span>
         </div>
         <div class="bar-track">
-          <div class="bar-fill ${level}" style="width: ${value}%"></div>
+          <div class="bar-fill ${level}" data-target="${value}" style="transform: scaleX(0)"></div>
         </div>
       </div>
     `;
+  }
+
+  /**
+   * Animate the complexity grade/meter reveal: bars fill from 0 (via
+   * transform: scaleX, so it's compositor-only) and the numeric labels
+   * count up, both driven by requestAnimationFrame. Respects
+   * prefers-reduced-motion by jumping straight to the final state.
+   */
+  function animateComplexityReveal(section) {
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const bars = section.querySelectorAll('.bar-fill');
+    const values = section.querySelectorAll('.bar-value');
+
+    if (reduced) {
+      bars.forEach(b => { b.style.transform = `scaleX(${(parseFloat(b.dataset.target) || 0) / 100})`; });
+      values.forEach(v => { v.textContent = v.dataset.countTarget; });
+      return;
+    }
+
+    // Let the initial scaleX(0) paint first, then transition to target
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        bars.forEach(b => {
+          const target = (parseFloat(b.dataset.target) || 0) / 100;
+          b.style.transition = 'transform 900ms cubic-bezier(0.16, 1, 0.3, 1)';
+          b.style.transform = `scaleX(${target})`;
+        });
+      });
+    });
+
+    values.forEach(v => {
+      const target = parseInt(v.dataset.countTarget, 10) || 0;
+      const duration = 900;
+      const start = performance.now();
+
+      function tick(now) {
+        const progress = Math.min((now - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+        v.textContent = Math.round(eased * target);
+        if (progress < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
   }
 
   /**
